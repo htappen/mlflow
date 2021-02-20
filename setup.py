@@ -91,6 +91,8 @@ setup(
             "mleap",
             # Required to log artifacts and models to GCS artifact locations
             "google-cloud-storage",
+            #  Required to promote models to Google Cloud AI Platform
+            "google-cloud-aiplatform",
             "azureml-core>=1.2.0",
             # Required to log artifacts to SFTP artifact locations
             "pysftp",

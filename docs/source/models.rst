@@ -975,6 +975,12 @@ For more info, see:
     mlflow models predict --help
     mlflow models build-docker --help
 
+.. _google_deployment:
+
+Deploy a model on Google Cloud AI Platform
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
 .. _azureml_deployment:
 
 Deploy a ``python_function`` model on Microsoft Azure ML
