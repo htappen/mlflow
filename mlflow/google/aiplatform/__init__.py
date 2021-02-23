@@ -97,12 +97,10 @@ def register_model(
              destination_image_uri
             )
 
-    _logger.info("Building image")
     _build_serving_image(
         model_uri,
         destination_image_uri
     )
-
 
     operation = _upload_model(
         destination_image_uri,
@@ -119,6 +117,7 @@ def _build_serving_image(
     model_uri: str,
     destination_image_uri: str
 ):
+    _logger.info("Building image")
     flavor_backend = _get_flavor_backend(model_uri)
     flavor_backend.build_image(
         model_uri,
@@ -135,7 +134,7 @@ def _build_serving_image(
     )
     for line in result:
         # Docker client doesn't catch auth errors, so we have to do it
-        # ourselves. https://github.com/docker/docker-py/issues/1772
+        # ourselves. See https://github.com/docker/docker-py/issues/1772
         if 'errorDetail' in line:
             raise docker.errors.APIError(
                 line['errorDetail']['message']
@@ -169,10 +168,16 @@ def _upload_model(
 
     api_endpoint = API_ENDPOINT_TEMPLATE.format(location=location)
     client_options = {"api_endpoint": api_endpoint}
+
     model_client = ModelServiceClient(client_options=client_options)
     model_parent = MODEL_PARENT_TEMPLATE.format(
         project=project,
         location=location
+    )
+    _logger.info(
+        "Uploading config to Google Cloud AI Platform: %s/models/%s",
+        model_parent,
+        display_name
     )
     response = model_client.upload_model(parent=model_parent, model=model_cfg)
     return response

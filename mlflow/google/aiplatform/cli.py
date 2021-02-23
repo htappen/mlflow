@@ -58,13 +58,13 @@ def commands():
 @click.option(
     "--location",
     "-l",
-    default=None,
+    default="us-central1",
     help="The GCP region that your model will be created in. Defaults to us-central1"
 )
 @click.option(
     "--wait-timeout",
     "-w",
-    default=None,
+    default=1800,
     help="How long to wait for model deployment to complete. Defaults to 30 minutes."
 )
 
