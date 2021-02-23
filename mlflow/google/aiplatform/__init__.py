@@ -21,12 +21,13 @@ IMAGE_URI_TEMPLATE = "gcr.io/{project}/{image_name}"
 def register_model(
     model_uri: str,
     display_name: str,
+    destination_image_uri: str=None,
+    mlflow_source_dir: str=None,
     model_options: dict=None,
     project: str=None,
-    destination_image_uri: str=None,
     location: str="us-central1",
     synchronous: bool=True,
-    wait_timeout: int = 1800
+    wait_timeout: int = 1800,
 ):
     """
     Builds a container and register an MLflow model with Google Cloud AI platform.
@@ -97,9 +98,11 @@ def register_model(
              destination_image_uri
             )
 
+    # TODO: allow passing in MLFlow home for development simplicity
     _build_serving_image(
         model_uri,
-        destination_image_uri
+        destination_image_uri,
+        mlflow_source_dir
     )
 
     operation = _upload_model(
@@ -115,13 +118,16 @@ def register_model(
 
 def _build_serving_image(
     model_uri: str,
-    destination_image_uri: str
+    destination_image_uri: str,
+    mlflow_source_dir: str=None
 ):
     _logger.info("Building image")
     flavor_backend = _get_flavor_backend(model_uri)
     flavor_backend.build_image(
         model_uri,
-        destination_image_uri
+        destination_image_uri,
+        install_mlflow=mlflow_source_dir is not None,
+        mlflow_home=mlflow_source_dir
     )
     _logger.info("Uploading image to Google Container Registry")
 

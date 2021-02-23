@@ -67,30 +67,36 @@ def commands():
     default=1800,
     help="How long to wait for model deployment to complete. Defaults to 30 minutes."
 )
+@click.option(
+    "--mlflow-source-dir",
+    default=None,
+    help="Optionally, specify a dir to install MLFlow from instead of PyPI"
+)
 
 @experimental
 def register_model(
     model_uri: str,
     display_name: str,
+    destination_image_uri: str,
+    mlflow_source_dir: str,
     model_options: dict,
     project: str,
-    destination_image_uri: str,
     location: str,
     wait_timeout: int
 ):
     """
-    TODO: copy docs from
+    TODO: Put in docs
     """
-    # TODO: this is incomplete
     model_cfg = None
     if model_options is not None:
         model_cfg = json.loads(model_options)
     do_register_model(
         model_uri=model_uri,
         display_name=display_name,
+        destination_image_uri=destination_image_uri,
+        mlflow_source_dir=mlflow_source_dir,
         model_options=model_cfg,
         project=project,
-        destination_image_uri=destination_image_uri,
         location=location,
         synchronous=True,
         wait_timeout=wait_timeout
