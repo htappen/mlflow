@@ -5,7 +5,7 @@ import json
 
 import click
 
-import mlflow.google
+from mlflow.google.aiplatform import register_model as do_register_model
 from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 
@@ -85,7 +85,7 @@ def register_model(
     model_cfg = None
     if model_options is not None:
         model_cfg = json.loads(model_options)
-    mlflow.google.register_model(
+    do_register_model(
         model_uri=model_uri,
         display_name=display_name,
         model_options=model_cfg,

@@ -2,21 +2,20 @@
 The ``mlflow.google`` module provides an API for deploying MLflow models to
 Google Cloud AI Platforom.
 """
+import docker
 import google.auth
 import logging
 
 from google.cloud.aiplatform.gapic import ModelServiceClient
 from mlflow.models.cli import _get_flavor_backend
 from mlflow.utils.annotations import experimental
-from mlflow.utils.logging_utils import eprint
-from subprocess import Popen, PIPE, STDOUT
 
 
 _logger = logging.getLogger(__name__)
 
 API_ENDPOINT_TEMPLATE = "{location}-aiplatform.googleapis.com"
 MODEL_PARENT_TEMPLATE = "projects/{project}/locations/{location}"
-IMAGE_URI_TEMPLATE = "gcr.io/{project}/{image_name}:latest"
+IMAGE_URI_TEMPLATE = "gcr.io/{project}/{image_name}"
 
 @experimental
 def register_model(
@@ -74,9 +73,13 @@ def register_model(
 
         # TODO: Example goes here
     """
-    if project is None:
+    if not project:
         try:
             _, project = google.auth.default()
+            _logger.info(
+                "Project not set. Using %s as project",
+                project
+                )
         except google.auth.exceptions.DefaultCredentialsError as e:
             raise ValueError(
                 "You must either pass a project ID in or set a default project"
@@ -84,22 +87,22 @@ def register_model(
                 " not found: {}".format(e.message)
             ) from e
 
-    if destination_image_uri is None:
+    if not destination_image_uri:
         destination_image_uri = IMAGE_URI_TEMPLATE.format(
-            {
-                "project": project,
-                "image_name": "FOO" # TODO: derive it from the image
-            }
+            project=project,
+            image_name=display_name
         )
         _logger.info(
             "Destination image URI not set. Building and uploading image to %s",
              destination_image_uri
             )
 
+    _logger.info("Building image")
     _build_serving_image(
         model_uri,
         destination_image_uri
     )
+
 
     operation = _upload_model(
         destination_image_uri,
@@ -122,14 +125,25 @@ def _build_serving_image(
         destination_image_uri,
         install_mlflow=True
     )
-    proc = Popen(
-        ["docker", "push", destination_image_uri],
-        stdout=PIPE,
-        stderr=STDOUT,
-        universal_newlines=True,
+    _logger.info("Uploading image to Google Container Registry")
+
+    client = docker.from_env()
+    result = client.images.push(
+        destination_image_uri,
+        stream=True,
+        decode=True
     )
-    for x in iter(proc.stdout.readline, ""):
-        eprint(x, end="")
+    for line in result:
+        # Docker client doesn't catch auth errors, so we have to do it
+        # ourselves. https://github.com/docker/docker-py/issues/1772
+        if 'errorDetail' in line:
+            raise docker.errors.APIError(
+                line['errorDetail']['message']
+            )
+        if 'status' in line:
+            print(line['status'])
+
+
 
 def _upload_model(
     image_uri: str,
@@ -153,14 +167,12 @@ def _upload_model(
     if model_options:
         model_cfg.update(model_options)
 
-    api_endpoint = API_ENDPOINT_TEMPLATE.format(
-        {"location": location}
-    )
+    api_endpoint = API_ENDPOINT_TEMPLATE.format(location=location)
     client_options = {"api_endpoint": api_endpoint}
     model_client = ModelServiceClient(client_options=client_options)
-    model_parent = MODEL_PARENT_TEMPLATE.format({
-        "project": project,
-        "location": location
-    })
+    model_parent = MODEL_PARENT_TEMPLATE.format(
+        project=project,
+        location=location
+    )
     response = model_client.upload_model(parent=model_parent, model=model_cfg)
     return response

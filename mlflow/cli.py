@@ -460,9 +460,11 @@ try:
     # pylint: disable=unused-import
     import mlflow.models.cli
     import mlflow.azureml.cli
+    import mlflow.google.aiplatform.cli
     import mlflow.sagemaker.cli
 
     cli.add_command(mlflow.azureml.cli.commands)
+    cli.add_command(mlflow.google.aiplatform.cli.commands)
     cli.add_command(mlflow.sagemaker.cli.commands)
     cli.add_command(mlflow.models.cli.commands)
 except ImportError as e:
