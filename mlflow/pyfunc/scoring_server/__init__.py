@@ -3,7 +3,7 @@ Scoring server for python model format.
 The passed int model is expected to have function:
    predict(pandas.Dataframe) -> pandas.DataFrame
 
-Input, expected intext/csv or application/json format,
+Input, expected in text/csv or application/json format,
 is parsed into pandas.DataFrame and passed to the model.
 
 Defines two endpoints:
@@ -16,6 +16,7 @@ import json
 import logging
 import numpy as np
 import pandas as pd
+import re
 import sys
 import traceback
 
@@ -48,19 +49,27 @@ except ImportError:
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
+MIME_TYPE_RE = re.compile("^([^;]+)")
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
-CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
 CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
-    CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_NUMPY,
 ]
+
+FORMAT_RE = re.compile("format=([^;]+)")
+CONTENT_TYPE_FORMAT_RECORDS_ORIENTED = "pandas-records"
+CONTENT_TYPE_FORMAT_SPLIT_ORIENTED = "pandas-split"
+
+FORMAT_TYPES = [
+    CONTENT_TYPE_FORMAT_RECORDS_ORIENTED,
+    CONTENT_TYPE_FORMAT_SPLIT_ORIENTED
+]
+
+CHARSET_RE = re.compile("charset=([^;]+)")
 
 _logger = logging.getLogger(__name__)
 
@@ -223,27 +232,47 @@ def init(model: PyFuncModel):
         we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
         generate predictions and convert them back to json.
         """
-        # Convert from CSV to pandas
-        if flask.request.content_type == CONTENT_TYPE_CSV:
+
+        # Content-Type can include other attributes like CHARSET
+        mime_type = MIME_TYPE_RE.search(flask.request.content_type)
+        if mime_type:
+            mime_type = mime_type.group(1)
+
+        format_type = FORMAT_RE.search(flask.request.content_type)
+        if format_type:
+            format_type = format_type.group(1)
+
+        charset = CHARSET_RE.search(flask.request.content_type)
+        if charset and charset.group(1).lower() != 'utf-8':
+            return flask.Response(
+                response=(
+                    "This predictor only supports UTF-8"
+                ),
+                status=415,
+                mimetype="text/plain",
+            )         
+
+        # Convert from CSV to pandas            
+        if mime_type == CONTENT_TYPE_CSV and not format_type:
             data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type == CONTENT_TYPE_JSON:
+        elif mime_type == CONTENT_TYPE_JSON and not format_type:
             json_str = flask.request.data.decode("utf-8")
             data = infer_and_parse_json_input(json_str, input_schema)
-        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
+        elif mime_type == CONTENT_TYPE_JSON and format_type == CONTENT_TYPE_FORMAT_SPLIT_ORIENTED:
             data = parse_json_input(
                 json_input=StringIO(flask.request.data.decode("utf-8")),
                 orient="split",
                 schema=input_schema,
             )
-        elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
+        elif mime_type == CONTENT_TYPE_JSON and format_type == CONTENT_TYPE_FORMAT_RECORDS_ORIENTED:
             data = parse_json_input(
                 json_input=StringIO(flask.request.data.decode("utf-8")),
                 orient="records",
                 schema=input_schema,
             )
-        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
+        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY and not format_type:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode("utf-8"))
         else:
             return flask.Response(
@@ -258,8 +287,8 @@ def init(model: PyFuncModel):
                 mimetype="text/plain",
             )
 
-        # Do the prediction
 
+        # Do the prediction
         try:
             raw_predictions = model.predict(data)
         except MlflowException as e:
