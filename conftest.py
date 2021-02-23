@@ -75,6 +75,7 @@ def pytest_ignore_collect(path, config):
             "tests/spark",
             "tests/tensorflow",
             "tests/azureml",
+            "tests/google/aiplatform",
             "tests/onnx",
             "tests/keras_autolog",
             "tests/tensorflow_autolog",

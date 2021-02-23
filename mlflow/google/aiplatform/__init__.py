@@ -121,8 +121,7 @@ def _build_serving_image(
     flavor_backend = _get_flavor_backend(model_uri)
     flavor_backend.build_image(
         model_uri,
-        destination_image_uri,
-        install_mlflow=True
+        destination_image_uri
     )
     _logger.info("Uploading image to Google Container Registry")
 
