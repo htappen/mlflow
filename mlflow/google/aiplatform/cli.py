@@ -85,7 +85,13 @@ def register_model(
     wait_timeout: int
 ):
     """
-    TODO: Put in docs
+    Build a container image included your model that's ready to serve on
+    Google Cloud AI Platform. Push the container image and register a model.
+
+    After you run this step, you should use gcloud to create an endpoint and deploy the
+    model behind it.
+
+    See https://cloud.google.com/ai-platform-unified/docs/predictions/deploy-model-api
     """
     model_cfg = None
     if model_options is not None:

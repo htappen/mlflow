@@ -53,18 +53,18 @@ def register_model(
                       artifact-locations>`_.
 
     :param display_name: The name of the model when it's registered on Cloud AI Platform
+    :param destination_image_uri: The name of the container image that will be built with your model inside of it.
+                                  Should be of the format ``gcr.io/<REPO>/<IMAGE>:<TAG>``. Defaults to
+                                  gcr.io/<DEFAULT PROJECT>/<display_name>:<LATEST>
+    :param mlflow_source_dir: If set, installs MLFlow from this directory instead of PyPI
     :param model_options: A dict of other attributes of the Cloud AI Platform Model object, like labels and schema
     :param project: The Google Cloud Platform project in which to build image and register the model,
                     as a string. Uses the default project from gcloud config set <PROJECT_ID> if not set
-    :param destination_image_uri: The name of the container image that will be built with your model inside of it.
-                                  Should be of the format ``gcr.io/<REPO>/<IMAGE>:<TAG>``. Defaults to
-                                  gcr.io/<DEFAULT PROJECT>/<MODEL NAME>/<LATEST>
     :param location: The GCP region that your model will be created in. Defaults to us-central1
     :param synchronous: If ``True``, this method blocks until the image creation procedure
                         terminates before returning. If ``False``, the method returns immediately,
                         but the returned image will not be available until the asynchronous
                         creation process completes.
-
     :param wait_timeout: How long to wait for model deployment to complete, if synchronous is ``True``.
                          Defaults to 30 minutes.
 
@@ -73,7 +73,47 @@ def register_model(
     .. code-block:: python
         :caption: Example
 
-        # TODO: Example goes here
+        from mlflow.google.aiplatform import register_model
+        from google.cloud.aiplatform.gapic import EndpointServiceClient
+
+        # Use MLFlow to register the model on Cloud AI Platform
+        model_uri = "models:/mymodel/mymodelversion" # Change to a path to your model
+        display_name = "my_mlflow_model" # Change to a display name to reference on Google Cloud
+        endpoint_name = "my_serving_endpoint" # Change to a display name to send predictions to
+
+        model_info = register_model(model_uri, display_name)
+
+        # Create an endpoint...
+        # See https://github.com/googleapis/python-aiplatform/blob/master/samples/snippets/create_endpoint_sample.py
+        client_options = {"api_endpoint": "us-central1-aiplatform.googleapis.com"}
+        _, project = google.auth.default()
+        cloud_model_id = model_info.name
+
+        client = EndpointServiceClient(client_options=client_options)
+        response = endpoint_client.create_endpoint(
+            parent=f"projects/{project}/locations/us-central1", 
+            endpoint={"display_name": endpoint_name}
+        )
+        cloud_endpoint_id = response.result(timeout=timeout).name
+
+        # ...then deploy the model
+        # See https://github.com/googleapis/python-aiplatform/blob/master/samples/snippets/deploy_model_custom_trained_model_sample.py
+        deployed_model = {
+            "model": cloud_model_id,
+            "display_name": display_name
+            "dedicated_resources": {
+                "min_replica_count": 1,
+                "machine_spec": { "machine_type": "n1-standard-2" }
+            }
+        }
+        traffic_split = {"0": 100}
+        endpoint = client.endpoint_path(
+            project=project, location='us-central1, endpoint=cloud_endpoint_id
+        )
+        response = client.deploy_model(
+            endpoint=endpoint, deployed_model=deployed_model, traffic_split=traffic_split
+        )
+
     """
     if not project:
         try:

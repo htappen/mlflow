@@ -980,8 +980,58 @@ For more info, see:
 Deploy a model on Google Cloud AI Platform
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+The :py:mod:`mlflow.google.aiplatform` module can create a Docker container from ``python_function`` models. It uploads the image to Google Cloud Container Registery and registers the model in Google Cloud AI Platform. Once the model is registered, you can deploy it on your choice of hardware behind a simple HTTP endpoint. See `docs <https://cloud.google.com/ai-platform-unified/docs/predictions/deploy-model-api>`_ for more information.
+
+You'll use the same input and output formats as `local_model_deployment_`.
+
+Once the model has been registered, you can deploy it on Google Cloud AI Platform.
+
+.. rubric:: Example workflow using the Python API
+
+.. code-block:: py
+    from mlflow.google.aiplatform import register_model
+    from google.cloud.aiplatform.gapic import EndpointServiceClient
+
+    # Use MLFlow to register the model on Cloud AI Platform
+    model_uri = "models:/mymodel/mymodelversion" # Change to a path to your model
+    display_name = "my_mlflow_model" # Change to a display name to reference on Google Cloud
+    endpoint_name = "my_serving_endpoint" # Change to a display name to send predictions to
+
+    model_info = register_model(model_uri, display_name)
+
+    # Create an endpoint...
+    # See https://github.com/googleapis/python-aiplatform/blob/master/samples/snippets/create_endpoint_sample.py
+    client_options = {"api_endpoint": "us-central1-aiplatform.googleapis.com"}
+    _, project = google.auth.default()
+    cloud_model_id = model_info.name
+
+    client = EndpointServiceClient(client_options=client_options)
+    response = endpoint_client.create_endpoint(
+        parent=f"projects/{project}/locations/us-central1", 
+        endpoint={"display_name": endpoint_name}
+    )
+    cloud_endpoint_id = response.result(timeout=timeout).name
+
+    # ...then deploy the model
+    # See https://github.com/googleapis/python-aiplatform/blob/master/samples/snippets/deploy_model_custom_trained_model_sample.py
+    deployed_model = {
+        "model": cloud_model_id,
+        "display_name": display_name
+        "dedicated_resources": {
+            "min_replica_count": 1,
+            "machine_spec": { "machine_type": "n1-standard-2" }
+        }
+    }
+    traffic_split = {"0": 100}
+    endpoint = client.endpoint_path(
+        project=project, location='us-central1, endpoint=cloud_endpoint_id
+    )
+    response = client.deploy_model(
+        endpoint=endpoint, deployed_model=deployed_model, traffic_split=traffic_split
+    )
 
 .. _azureml_deployment:
+
 
 Deploy a ``python_function`` model on Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
