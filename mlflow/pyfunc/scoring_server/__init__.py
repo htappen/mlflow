@@ -15,6 +15,7 @@ import flask
 import json
 import logging
 import numpy as np
+import os
 import pandas as pd
 import re
 import sys
@@ -48,6 +49,7 @@ except ImportError:
     from io import StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
+FORCE_TF_SERVING_OUTPUT = "FORCE_TF_SERVING_OUTPUT"
 
 MIME_TYPE_RE = re.compile("^([^;]+)")
 CONTENT_TYPE_CSV = "text/csv"
@@ -182,6 +184,8 @@ def parse_split_oriented_json_input_to_numpy(json_input):
 
 def predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    if os.environ.get(FORCE_TF_SERVING_OUTPUT):
+        predictions = { "predictions": predictions}
     json.dump(predictions, output, cls=NumpyEncoder)
 
 

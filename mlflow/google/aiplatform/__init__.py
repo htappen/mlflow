@@ -9,6 +9,7 @@ import logging
 from google.cloud.aiplatform.gapic import ModelServiceClient
 from mlflow.models.cli import _get_flavor_backend
 from mlflow.utils.annotations import experimental
+from mlflow.pyfunc.scoring_server import FORCE_TF_SERVING_OUTPUT 
 
 
 _logger = logging.getLogger(__name__)
@@ -163,6 +164,12 @@ def _upload_model(
             "image_uri": image_uri,
             "ports": [
                 { "container_port": 8080 }
+            ],
+            "env": [
+                { 
+                    "name": FORCE_TF_SERVING_OUTPUT,
+                    "value": "True"
+                }
             ],
             "predict_route": "/invocations",
             "health_route": "/ping",
